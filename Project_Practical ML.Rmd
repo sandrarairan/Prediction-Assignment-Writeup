@@ -1,0 +1,138 @@
+---
+title: "Project_Machine_Learning"
+author: "Sandra Rairán"
+date: "9/7/2020"
+output: html_document
+---
+
+# Create a report describing how you built your model
+#### RF library("caret") very slow then use library("randomForest")
+1. read data  (pml-training.csv) and (pml-testing.csv)
+2. check classes with unique(training$classe) [1] "A" "B" "C" "D" "E"
+3. use complete.cases() to print a logical vector that indicates complete and missing rows (i.e. rows without NA).
+and The data were initially inspected. A number of variables appeared to have missing variables e.g., max_roll_belt.
+4. The na.strings argument is for substitution within the body of the file, that is, matching strings that should be replaced with NA.
+5. Delete columns with all missing values.
+6.delete the first 7 columns are not necessary for prediction with rf.
+7. the dimensions of the new df
+8. Data Slicing
+Cross Validation
+60% traning
+40% testing
+9. Random Forecast for prediction
+10. Importance of variables
+11. This graph shows the error vs. the number of trees. You can see how the error decreases as the number of trees increases.
+12. confusionMatrix
+13. predict final:
+ 1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
+ B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+Levels: A B C D E
+
+## Expected out-of-sample error
+
+Out-of-bag (OOB) error, also called out-of-bag estimate, is a method of measuring the prediction error of random forests,
+
+# Data Raw Loading and cleaning
+```{r libraries,  results='hide'}
+library("randomForest")
+library("dplyr")
+library("caret")
+```
+
+
+```{r data, echo=TRUE, warning = FALSE}
+
+training = read.csv("pml-training.csv", 
+header = TRUE)
+testing<-read.csv("pml-testing.csv", header=TRUE)
+
+# The data were initially inspected. A number of variables appeared to have missing variables e.g., max_roll_belt.
+str(training)
+## training has 160 variables of 19622 rows. 
+dim(testing)
+dim(training)
+
+unique(training$classe)
+#We can use complete.cases() to print a logical vector that indicates complete and missing rows (i.e. rows without NA). 
+dfmissing <- sum(complete.cases(training))
+dfmissing ## 406
+
+## The na.strings argument is for substitution within the body of the file, that is, matching strings that should be replaced with NA
+trainingdf <- read.csv("pml-training.csv", na.strings=c("NA", ""))
+testingdf <- read.csv('pml-testing.csv', na.strings=c("NA", ""))
+dim(trainingdf)
+dim(testingdf)
+
+dftrainingdf <- sum(complete.cases(trainingdf))
+dftrainingdf
+
+# Delete columns with all missing values
+trainingdf<-trainingdf[,colSums(is.na(trainingdf)) == 0]
+testingdf <-testingdf[,colSums(is.na(testingdf)) == 0]
+
+
+## delete the first 7 columns are not necessary for prediction with rf
+trainingdf   <-trainingdf[,-c(1:7)]
+testingdf <-testingdf[,-c(1:7)]
+
+## the dimensions of the new df
+dim(trainingdf) ## 19622    53
+dim(testingdf) ## 20 53
+```
+
+# Data Slicing
+Cross Validation
+60% traning
+40% testing
+```{r Slicing, echo=TRUE, warning = FALSE}
+subsamples <- createDataPartition(y=trainingdf$classe, p=0.6, list=FALSE)
+subTraining <- trainingdf[subsamples, ] 
+subTesting <- trainingdf[-subsamples, ]
+
+dim(subTraining)
+dim(subTesting)
+```
+
+
+# Random Forecast for prediction
+
+```{r randomForest1, echo=TRUE, warning = FALSE}
+# Fit model
+## mtry: Number of variables randomly sampled as candidates at each split.
+subTraining$classe = factor(subTraining$classe )
+model_rf <- randomForest(classe ~. , data=subTraining, method="class",mtry = 15, importance = TRUE)
+prediction_rf <- predict(model_rf, subTesting, type = "class")
+
+# Test results on subTesting data set:
+model_rf
+```
+Out-of-bag (OOB) error, also called out-of-bag estimate, is a method of measuring the prediction error of random forests,
+
+Importance of variables
+```{r Importance, echo=TRUE}
+
+importance(model_rf)
+```
+This graph shows the error vs. the number of trees. You can see how the error decreases as the number of trees increases.
+```{r pltot, echo=TRUE}
+plot(model_rf)
+
+```
+
+
+
+```{r randomforestcm, echo=TRUE,warning = FALSE}
+
+confusionMatrix(table(prediction_rf, subTesting$classe))
+
+```
+
+
+
+```{r predictfinal1, echo=TRUE,warning=FALSE}
+
+predictfinal <- predict(model_rf, testingdf, type="class")
+predictfinal
+```
+
+
